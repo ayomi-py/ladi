@@ -1,4 +1,7 @@
+import { useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, User, MessageSquare, Menu, X, Search, LogOut, LayoutDashboard } from "lucide-react";
@@ -6,10 +9,36 @@ import { useState } from "react";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["unread-messages", user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user!.id)
+        .eq("is_read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel(`navbar-messages-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ["unread-messages", user.id] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, queryClient]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -53,7 +82,14 @@ const Navbar = () => {
           {user ? (
             <>
               <Link to="/messages">
-                <Button variant="ghost" size="icon"><MessageSquare className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" className="relative">
+                  <MessageSquare className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
               </Link>
               <Link to="/cart">
                 <Button variant="ghost" size="icon"><ShoppingCart className="h-5 w-5" /></Button>
@@ -113,8 +149,16 @@ const Navbar = () => {
           </div>
           {user ? (
             <div className="flex flex-col gap-1">
-              <Link to="/messages" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start"><MessageSquare className="mr-2 h-4 w-4" />Messages</Button>
+              <Link to="/messages" onClick={() => setMobileOpen(false)} className="relative">
+                <Button variant="ghost" className="w-full justify-start">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Messages
+                  {unreadCount > 0 && (
+                    <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
               </Link>
               <Link to="/cart" onClick={() => setMobileOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start"><ShoppingCart className="mr-2 h-4 w-4" />Cart</Button>

@@ -124,7 +124,10 @@ const Messages = () => {
       .from("messages")
       .update({ is_read: true })
       .in("id", unreadIds)
-      .then(() => queryClient.invalidateQueries({ queryKey: ["messages", user.id] }));
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["messages", user.id] });
+        queryClient.invalidateQueries({ queryKey: ["unread-messages", user.id] });
+      });
   }, [user, selectedPeerId, messages, queryClient]);
 
   const sendMessage = useMutation({
@@ -143,6 +146,7 @@ const Messages = () => {
     onSuccess: () => {
       setDraft("");
       queryClient.invalidateQueries({ queryKey: ["messages", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["unread-messages", user?.id] });
     },
     onError: (e: any) =>
       toast({
@@ -156,7 +160,10 @@ const Messages = () => {
   useEffect(() => {
     if (!user) return;
 
-    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["messages", user.id] });
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", user.id] });
+      queryClient.invalidateQueries({ queryKey: ["unread-messages", user.id] });
+    };
 
     const ch1 = supabase
       .channel(`messages-sent-${user.id}`)
