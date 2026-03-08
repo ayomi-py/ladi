@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Messages from "./pages/Messages.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import Admin from "./pages/Admin.tsx";
+import SellerProfile from "./pages/SellerProfile.tsx";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/seller/:userId" element={<SellerProfile />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/cart" element={<Cart />} />

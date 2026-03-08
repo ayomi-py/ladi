@@ -44,6 +44,20 @@ const Messages = () => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
 
+  const { data: selectedPeerProfile } = useQuery({
+    queryKey: ["profile", selectedPeerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url")
+        .eq("user_id", selectedPeerId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedPeerId,
+  });
+
   const { data: messages, isLoading } = useQuery({
     queryKey: ["messages", user?.id],
     queryFn: async () => {
@@ -94,6 +108,25 @@ const Messages = () => {
     }
   }, [user, messages, searchParams, selectedPeerId]);
 
+  // Mark messages as read when viewing conversation
+  useEffect(() => {
+    if (!user || !selectedPeerId || !messages?.length) return;
+    const unreadIds = messages
+      .filter(
+        (m) =>
+          m.receiver_id === user.id &&
+          m.sender_id === selectedPeerId &&
+          !m.is_read
+      )
+      .map((m) => m.id);
+    if (unreadIds.length === 0) return;
+    supabase
+      .from("messages")
+      .update({ is_read: true })
+      .in("id", unreadIds)
+      .then(() => queryClient.invalidateQueries({ queryKey: ["messages", user.id] }));
+  }, [user, selectedPeerId, messages, queryClient]);
+
   const sendMessage = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
@@ -119,28 +152,25 @@ const Messages = () => {
       }),
   });
 
-  // Realtime updates - keep inbox fresh
+  // Realtime updates - subscribe to both sent and received messages
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel(`messages-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `sender_id=eq.${user.id},receiver_id=eq.${user.id}`,
-        } as any,
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["messages", user.id] });
-        },
-      )
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["messages", user.id] });
+
+    const ch1 = supabase
+      .channel(`messages-sent-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `sender_id=eq.${user.id}` }, invalidate)
+      .subscribe();
+
+    const ch2 = supabase
+      .channel(`messages-received-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, invalidate)
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
     };
   }, [user, queryClient]);
 
@@ -265,46 +295,55 @@ const Messages = () => {
         <section className="flex flex-col">
           <Card className="flex-1 flex flex-col">
             <CardContent className="flex-1 p-4 flex flex-col">
-              {selectedPeerId && activeMessages.length > 0 ? (
-                <>
-                  <div className="mb-3 text-sm text-muted-foreground">
-                    Conversation with{" "}
-                    {(() => {
-                      const first = activeMessages[0];
-                      const profile =
-                        first.sender_id === selectedPeerId
-                          ? first.sender_profile
-                          : first.receiver_profile;
-                      return profile?.full_name || "User";
-                    })()}
-                  </div>
-                  <div className="flex-1 space-y-2 overflow-y-auto mb-3">
-                    {activeMessages.map((m) => {
-                      const isMe = m.sender_id === user?.id;
-                      return (
-                        <div
-                          key={m.id}
-                          className={`flex ${
-                            isMe ? "justify-end" : "justify-start"
-                          }`}
-                        >
+              {selectedPeerId ? (
+                activeMessages.length > 0 ? (
+                  <>
+                    <div className="mb-3 text-sm text-muted-foreground">
+                      Conversation with{" "}
+                      {(() => {
+                        const first = activeMessages[0];
+                        const profile =
+                          first.sender_id === selectedPeerId
+                            ? first.sender_profile
+                            : first.receiver_profile;
+                        return profile?.full_name || "User";
+                      })()}
+                    </div>
+                    <div className="flex-1 space-y-2 overflow-y-auto mb-3">
+                      {activeMessages.map((m) => {
+                        const isMe = m.sender_id === user?.id;
+                        return (
                           <div
-                            className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                              isMe
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-foreground"
+                            key={m.id}
+                            className={`flex ${
+                              isMe ? "justify-end" : "justify-start"
                             }`}
                           >
-                            {m.content}
+                            <div
+                              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                                isMe
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-foreground"
+                              }`}
+                            >
+                              {m.content}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">
+                      {selectedPeerProfile?.full_name || "User"}
+                    </p>
+                    <p className="mt-1">No messages yet. Start the conversation below.</p>
                   </div>
-                </>
+                )
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Select a conversation to start chatting.
+                  Select a conversation or open a product and click Message to start chatting.
                 </div>
               )}
 

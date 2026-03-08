@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,7 +91,11 @@ const Orders = () => {
                     <div>
                       <p className="text-sm font-medium">Order #{order.id.slice(0, 8)}</p>
                       <p className="text-xs text-muted-foreground">
-                        Seller: {order.seller_name} · {new Date(order.created_at).toLocaleDateString()}
+                        <Link to={`/seller/${order.seller_id}`} className="hover:underline text-primary font-medium">
+                          {order.seller_name}
+                        </Link>
+                        {" · "}
+                        {new Date(order.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge className={`text-xs ${statusColors[order.status] || ""}`}>

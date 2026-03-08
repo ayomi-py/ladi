@@ -322,19 +322,22 @@ const ProductDetail = () => {
             {/* Seller Info */}
             <Card>
               <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                <Link
+                  to={`/seller/${product.seller_id}`}
+                  className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0"
+                >
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {product.seller_profile?.avatar_url ? (
                       <img src={product.seller_profile.avatar_url} className="h-10 w-10 rounded-full object-cover" alt="" />
                     ) : (
                       <User className="h-5 w-5 text-muted-foreground" />
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{product.seller_profile?.full_name || "Unknown Seller"}</p>
-                    <p className="text-xs text-muted-foreground">Seller</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{product.seller_profile?.full_name || "Unknown Seller"}</p>
+                    <p className="text-xs text-muted-foreground">View profile & products</p>
                   </div>
-                </div>
+                </Link>
                 {user && product.seller_profile?.user_id !== user.id && (
                   <Link to={`/messages?to=${product.seller_profile?.user_id}`}>
                     <Button variant="outline" size="sm">
