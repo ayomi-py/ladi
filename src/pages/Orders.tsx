@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,8 @@ import Navbar from "@/components/layout/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Package } from "lucide-react";
 
@@ -15,6 +17,9 @@ const Orders = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportOrderId, setReportOrderId] = useState<string | null>(null);
+  const [reportText, setReportText] = useState("");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -55,6 +60,41 @@ const Orders = () => {
     onError: (e: any) =>
       toast({
         title: "Failed to confirm delivery",
+        description: e.message,
+        variant: "destructive",
+      }),
+  });
+
+  const reportSeller = useMutation({
+    mutationFn: async () => {
+      if (!user || !reportOrderId) throw new Error("Missing data");
+      const order = orders?.find((o: any) => o.id === reportOrderId);
+      if (!order) throw new Error("Order not found");
+      if (!reportText.trim()) throw new Error("Describe the issue");
+
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        reported_user_id: order.seller_id,
+        order_id: order.id,
+        product_id: null,
+        role: "seller",
+        category: "fraud",
+        description: reportText.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report submitted",
+        description: "Our team will review this seller.",
+      });
+      setReportOpen(false);
+      setReportOrderId(null);
+      setReportText("");
+    },
+    onError: (e: any) =>
+      toast({
+        title: "Failed to submit report",
         description: e.message,
         variant: "destructive",
       }),
@@ -107,19 +147,36 @@ const Orders = () => {
                       {item.products?.name} × {item.quantity} — ₦{Number(item.price).toLocaleString()}
                     </p>
                   ))}
-                  <p className="font-semibold text-sm mt-3">Total: ₦{Number(order.total).toLocaleString()}</p>
-                  {order.status === "shipped" && (
-                    <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <p className="font-semibold text-sm">
+                      Total: ₦{Number(order.total).toLocaleString()}
+                    </p>
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => confirmDelivery.mutate(order.id)}
-                        disabled={confirmDelivery.isPending}
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={() => {
+                          setReportOrderId(order.id);
+                          setReportOpen(true);
+                        }}
                       >
-                        {confirmDelivery.isPending ? "Confirming..." : "Received"}
+                        Report seller
                       </Button>
+                      {order.status === "shipped" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => confirmDelivery.mutate(order.id)}
+                          disabled={confirmDelivery.isPending}
+                        >
+                          {confirmDelivery.isPending
+                            ? "Confirming..."
+                            : "Received"}
+                        </Button>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -131,6 +188,33 @@ const Orders = () => {
           </div>
         )}
       </main>
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report seller</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-2">
+            Use this if you suspect fraud or serious policy violations. This
+            does not automatically cancel your order.
+          </p>
+          <Textarea
+            rows={4}
+            placeholder="Describe what happened..."
+            value={reportText}
+            onChange={(e) => setReportText(e.target.value)}
+          />
+          <Button
+            className="mt-3"
+            disabled={reportSeller.isPending}
+            onClick={() => reportSeller.mutate()}
+          >
+            {reportSeller.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Submit report
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

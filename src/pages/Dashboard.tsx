@@ -34,6 +34,9 @@ const Dashboard = () => {
   const [category, setCategory] = useState<string>("other");
   const [stock, setStock] = useState("1");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportOrderId, setReportOrderId] = useState<string | null>(null);
+  const [reportText, setReportText] = useState("");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -153,6 +156,41 @@ const Dashboard = () => {
       toast({ title: "Order status updated" });
       queryClient.invalidateQueries({ queryKey: ["seller-orders"] });
     },
+  });
+
+  const reportBuyer = useMutation({
+    mutationFn: async () => {
+      if (!user || !reportOrderId) throw new Error("Missing data");
+      const order = sellerOrders?.find((o: any) => o.id === reportOrderId);
+      if (!order) throw new Error("Order not found");
+      if (!reportText.trim()) throw new Error("Describe the issue");
+
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        reported_user_id: order.buyer_id,
+        order_id: order.id,
+        product_id: null,
+        role: "buyer",
+        category: "fraud",
+        description: reportText.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report submitted",
+        description: "Our team will review this buyer.",
+      });
+      setReportOpen(false);
+      setReportOrderId(null);
+      setReportText("");
+    },
+    onError: (e: any) =>
+      toast({
+        title: "Failed to submit report",
+        description: e.message,
+        variant: "destructive",
+      }),
   });
 
   const resetForm = () => {
@@ -377,21 +415,52 @@ const Dashboard = () => {
                         </p>
                       ))}
                       <div className="flex items-center justify-between mt-3">
-                        <p className="font-semibold text-sm">Total: ₦{Number(order.total).toLocaleString()}</p>
-                        {order.status !== "delivered" && order.status !== "cancelled" && (
-                          <Select
-                            value={order.status}
-                            onValueChange={(v) => updateOrderStatus.mutate({ id: order.id, status: v })}
+                        <p className="font-semibold text-sm">
+                          Total: ₦{Number(order.total).toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setReportOrderId(order.id);
+                              setReportOpen(true);
+                            }}
                           >
-                            <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="shipped">Sent</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
+                            Report buyer
+                          </Button>
+                          {order.status !== "delivered" &&
+                            order.status !== "cancelled" && (
+                              <Select
+                                value={order.status}
+                                onValueChange={(v) =>
+                                  updateOrderStatus.mutate({
+                                    id: order.id,
+                                    status: v,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-36 h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">
+                                    Pending
+                                  </SelectItem>
+                                  <SelectItem value="confirmed">
+                                    Confirmed
+                                  </SelectItem>
+                                  <SelectItem value="shipped">
+                                    Sent
+                                  </SelectItem>
+                                  <SelectItem value="cancelled">
+                                    Cancelled
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -406,6 +475,33 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report buyer</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-2">
+            Use this if you suspect fraud, scams, or serious policy
+            violations. This does not automatically cancel the order.
+          </p>
+          <Textarea
+            rows={4}
+            placeholder="Describe what happened..."
+            value={reportText}
+            onChange={(e) => setReportText(e.target.value)}
+          />
+          <Button
+            className="mt-3"
+            disabled={reportBuyer.isPending}
+            onClick={() => reportBuyer.mutate()}
+          >
+            {reportBuyer.isPending && (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            )}
+            Submit report
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

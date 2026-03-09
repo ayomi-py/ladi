@@ -1,11 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, MessageSquare, Menu, X, Search, LogOut, LayoutDashboard } from "lucide-react";
-import { useState } from "react";
+import { ShoppingCart, User, MessageSquare, Menu, X, Search, LogOut, LayoutDashboard, Sun, Moon } from "lucide-react";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -14,6 +13,34 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // initialize theme from localStorage / system
+  useEffect(() => {
+    const stored = window.localStorage.getItem("theme");
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial =
+      stored === "dark" || (!stored && prefersDark) ? "dark" : "light";
+    setTheme(initial);
+    if (initial === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (next === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    window.localStorage.setItem("theme", next);
+  };
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unread-messages", user?.id],
@@ -97,6 +124,13 @@ const Navbar = () => {
               <Link to="/dashboard">
                 <Button variant="ghost" size="icon"><LayoutDashboard className="h-5 w-5" /></Button>
               </Link>
+              <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </Button>
               <Link to="/profile">
                 <Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button>
               </Link>
@@ -169,6 +203,25 @@ const Navbar = () => {
               <Link to="/profile" onClick={() => setMobileOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start"><User className="mr-2 h-4 w-4" />Profile</Button>
               </Link>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => {
+                  toggleTheme();
+                }}
+              >
+                {theme === "dark" ? (
+                  <>
+                    <Sun className="mr-2 h-4 w-4" />
+                    Light mode
+                  </>
+                ) : (
+                  <>
+                    <Moon className="mr-2 h-4 w-4" />
+                    Dark mode
+                  </>
+                )}
+              </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />Sign Out
               </Button>
