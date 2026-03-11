@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Package, ShoppingCart, Trash2, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Constants } from "@/integrations/supabase/types";
+import { useAdminRole } from "@/hooks/use-admin";
 
 const categories = Constants.public.Enums.product_category;
 
@@ -37,10 +38,17 @@ const Dashboard = () => {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportOrderId, setReportOrderId] = useState<string | null>(null);
   const [reportText, setReportText] = useState("");
+  const { isAdmin, adminLoading } = useAdminRole();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !adminLoading && user && isAdmin) {
+      navigate("/admin");
+    }
+  }, [user, authLoading, adminLoading, isAdmin, navigate]);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile", user?.id],

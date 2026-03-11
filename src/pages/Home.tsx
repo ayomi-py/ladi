@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,8 @@ import ProductCard from "@/components/products/ProductCard";
 import CategoryFilter from "@/components/products/CategoryFilter";
 import { Loader2, Package } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAdminRole } from "@/hooks/use-admin";
 
 const Home = () => {
   const { user, loading } = useAuth();
@@ -22,12 +22,19 @@ const Home = () => {
   const [minPrice, setMinPrice] = useState(initialMin);
   const [maxPrice, setMaxPrice] = useState(initialMax);
   const search = searchParams.get("q")?.trim() || "";
+  const { isAdmin, adminLoading } = useAdminRole();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/login");
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!loading && !adminLoading && user && isAdmin) {
+      navigate("/admin");
+    }
+  }, [user, loading, adminLoading, isAdmin, navigate]);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", category, search, minPrice, maxPrice],

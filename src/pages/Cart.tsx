@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminRole } from "@/hooks/use-admin";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,10 +15,17 @@ const Cart = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin, adminLoading } = useAdminRole();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !adminLoading && user && isAdmin) {
+      navigate("/admin");
+    }
+  }, [user, authLoading, adminLoading, isAdmin, navigate]);
 
   const { data: cartItems, isLoading } = useQuery({
     queryKey: ["cart", user?.id],

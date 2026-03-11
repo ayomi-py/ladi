@@ -2,17 +2,23 @@ import { useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminRole } from "@/hooks/use-admin";
 
 const Index = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { isAdmin, adminLoading } = useAdminRole();
 
   useEffect(() => {
-    if (!loading && user) {
-      navigate("/home");
+    if (!loading && !adminLoading && user) {
+      if (isAdmin) {
+        navigate("/admin");
+      } else {
+        navigate("/home");
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, adminLoading, isAdmin, navigate]);
 
   return (
     <div className="min-h-screen bg-background">

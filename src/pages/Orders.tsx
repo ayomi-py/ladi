@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Package } from "lucide-react";
+import { useAdminRole } from "@/hooks/use-admin";
 
 const Orders = () => {
   const { user, loading: authLoading } = useAuth();
@@ -20,10 +21,17 @@ const Orders = () => {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportOrderId, setReportOrderId] = useState<string | null>(null);
   const [reportText, setReportText] = useState("");
+  const { isAdmin, adminLoading } = useAdminRole();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !adminLoading && user && isAdmin) {
+      navigate("/admin");
+    }
+  }, [user, authLoading, adminLoading, isAdmin, navigate]);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["my-orders", user?.id],

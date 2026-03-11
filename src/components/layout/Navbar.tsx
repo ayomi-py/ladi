@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, MessageSquare, Menu, X, Search, LogOut, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { ShoppingCart, User, MessageSquare, Menu, X, Search, LogOut, LayoutDashboard, Sun, Moon, ShieldCheck } from "lucide-react";
+import { useAdminRole } from "@/hooks/use-admin";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -14,6 +15,7 @@ const Navbar = () => {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { isAdmin } = useAdminRole();
 
   // initialize theme from localStorage / system
   useEffect(() => {
@@ -75,7 +77,7 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link to={user ? "/home" : "/"} className="flex items-center gap-2">
+        <Link to={user && !isAdmin ? "/home" : user && isAdmin ? "/admin" : "/"} className="flex items-center gap-2">
           <span className="text-2xl font-display font-bold text-primary">LADI</span>
         </Link>
 
@@ -118,12 +120,27 @@ const Navbar = () => {
                   )}
                 </Button>
               </Link>
-              <Link to="/cart">
-                <Button variant="ghost" size="icon"><ShoppingCart className="h-5 w-5" /></Button>
-              </Link>
-              <Link to="/dashboard">
-                <Button variant="ghost" size="icon"><LayoutDashboard className="h-5 w-5" /></Button>
-              </Link>
+              {!isAdmin && (
+                <>
+                  <Link to="/cart">
+                    <Button variant="ghost" size="icon">
+                      <ShoppingCart className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link to="/dashboard">
+                    <Button variant="ghost" size="icon">
+                      <LayoutDashboard className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                </>
+              )}
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="ghost" size="icon">
+                    <ShieldCheck className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
               <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === "dark" ? (
                   <Sun className="h-5 w-5" />
