@@ -149,11 +149,10 @@ const Navbar = () => {
                 )}
               </Button>
               <Link to="/profile">
-                <Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
               </Link>
-              <Button variant="ghost" size="icon" onClick={handleSignOut}>
-                <LogOut className="h-5 w-5" />
-              </Button>
             </>
           ) : (
             <>
@@ -167,94 +166,8 @@ const Navbar = () => {
           )}
         </nav>
 
-        {/* Mobile toggle */}
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
       </div>
 
-      {/* Mobile Menu */}
-      {mobileOpen && (
-        <div className="md:hidden border-t bg-background p-4 space-y-3 animate-fade-in">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setMobileOpen(false);
-                  if (user) {
-                    navigate(
-                      `/home?q=${encodeURIComponent(searchTerm.trim())}`,
-                    );
-                  } else {
-                    navigate("/login");
-                  }
-                }
-              }}
-              className="w-full h-10 rounded-lg border bg-secondary/50 pl-10 pr-4 text-sm outline-none"
-            />
-          </div>
-          {user ? (
-            <div className="flex flex-col gap-1">
-              <Link to="/messages" onClick={() => setMobileOpen(false)} className="relative">
-                <Button variant="ghost" className="w-full justify-start">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Messages
-                  {unreadCount > 0 && (
-                    <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
-              <Link to="/cart" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start"><ShoppingCart className="mr-2 h-4 w-4" />Cart</Button>
-              </Link>
-              <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start"><LayoutDashboard className="mr-2 h-4 w-4" />Dashboard</Button>
-              </Link>
-              <Link to="/profile" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start"><User className="mr-2 h-4 w-4" />Profile</Button>
-              </Link>
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                onClick={() => {
-                  toggleTheme();
-                }}
-              >
-                {theme === "dark" ? (
-                  <>
-                    <Sun className="mr-2 h-4 w-4" />
-                    Light mode
-                  </>
-                ) : (
-                  <>
-                    <Moon className="mr-2 h-4 w-4" />
-                    Dark mode
-                  </>
-                )}
-              </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />Sign Out
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Link to="/login" onClick={() => setMobileOpen(false)}>
-                <Button variant="outline" className="w-full">Sign In</Button>
-              </Link>
-              <Link to="/register" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full">Get Started</Button>
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
     </header>
   );
 };

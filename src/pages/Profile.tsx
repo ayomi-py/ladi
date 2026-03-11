@@ -10,17 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Loader2,
-  User,
-  Camera,
-  ShoppingBag,
-  LayoutDashboard,
-  Star,
-} from "lucide-react";
+import { Loader2, User, Camera, ShoppingBag, LayoutDashboard, Star, LogOut } from "lucide-react";
 
 const Profile = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -174,7 +167,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container py-8">
+      <main className="container py-8 flex flex-col min-h-[calc(100vh-4rem)]">
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-display font-bold">My Profile</h1>
@@ -198,7 +191,7 @@ const Profile = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.4fr,1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.4fr,1fr] flex-1">
           {/* Left column - identity & form */}
           <section>
             <Card className="mb-4">
@@ -396,6 +389,19 @@ const Profile = () => {
               </CardContent>
             </Card>
           </section>
+        </div>
+        <div className="mt-8 flex justify-center">
+          <Button
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50"
+            onClick={async () => {
+              await signOut();
+              navigate("/");
+            }}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Log out
+          </Button>
         </div>
       </main>
     </div>
