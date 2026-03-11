@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, Users, PackageSearch, BarChart3, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 function generateCouponCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -58,7 +65,7 @@ const Admin = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, department, matric_number, created_at");
+        .select("user_id, full_name, department, matric_number, created_at, is_active" as any);
       if (error) throw error;
       return data;
     },
@@ -114,6 +121,26 @@ const Admin = () => {
     onSuccess: () => {
       toast({ title: "Product updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: any) =>
+      toast({
+        title: "Update failed",
+        description: e.message,
+        variant: "destructive",
+      }),
+  });
+
+  const toggleUserActive = useMutation({
+    mutationFn: async ({ user_id, is_active }: { user_id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active } as any)
+        .eq("user_id", user_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "User updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
     },
     onError: (e: any) =>
       toast({
@@ -206,6 +233,40 @@ const Admin = () => {
   const orderCount = orders?.length || 0;
   const activeCoupons =
     coupons?.filter((c: any) => c.is_active).length ?? 0;
+
+  // Monthly revenue analytics (last 12 months)
+  type MonthlyPoint = { monthKey: string; monthLabel: string; revenue: number; orders: number };
+  const monthlyMap = new Map<string, MonthlyPoint>();
+  (orders || []).forEach((o: any) => {
+    const d = new Date(o.created_at);
+    if (Number.isNaN(d.getTime())) return;
+    const year = d.getFullYear();
+    const month = d.getMonth(); // 0-11
+    const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const label = `${d.toLocaleString("default", {
+      month: "short",
+    })} ${String(year).slice(-2)}`;
+    const existing = monthlyMap.get(key) || {
+      monthKey: key,
+      monthLabel: label,
+      revenue: 0,
+      orders: 0,
+    };
+    existing.revenue += Number(o.total || 0);
+    existing.orders += 1;
+    monthlyMap.set(key, existing);
+  });
+  const monthlyDataAll = Array.from(monthlyMap.values()).sort((a, b) =>
+    a.monthKey.localeCompare(b.monthKey),
+  );
+  const monthlyData = monthlyDataAll.slice(-12);
+
+  const revenueChartConfig: ChartConfig = {
+    revenue: {
+      label: "Revenue",
+      color: "hsl(var(--primary))",
+    },
+  };
 
   const sellerStats = new Map<
     string,
@@ -370,9 +431,31 @@ const Admin = () => {
                           </p>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(p.created_at).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={p.is_active === false ? "secondary" : "default"}
+                            className="text-xs"
+                          >
+                            {p.is_active === false ? "Deactivated" : "Active"}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              toggleUserActive.mutate({
+                                user_id: p.user_id,
+                                is_active: p.is_active === false,
+                              })
+                            }
+                          >
+                            {p.is_active === false ? "Activate" : "Deactivate"}
+                          </Button>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(p.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -432,23 +515,63 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="text-sm">Revenue analytics</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p className="text-muted-foreground">
-                  Simple textual analytics are shown here. You can wire this to
-                  the existing `chart` components for full visual charts later.
-                </p>
-                <p>
-                  - Total orders:{" "}
-                  <strong>{orderCount}</strong>
-                </p>
-                <p>
-                  - Total revenue:{" "}
-                  <strong>₦{totalRevenue.toLocaleString()}</strong>
-                </p>
-                <p>
-                  - Platform commission (6.5%):{" "}
-                  <strong>₦{commission.toLocaleString()}</strong>
-                </p>
+              <CardContent className="space-y-4 text-sm">
+                <div className="w-full">
+                  <ChartContainer
+                    config={revenueChartConfig}
+                    className="w-full max-w-full"
+                  >
+                    <BarChart data={monthlyData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        className="stroke-border/40"
+                      />
+                      <XAxis
+                        dataKey="monthLabel"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={4}
+                        tickFormatter={(v) => `₦${Number(v).toLocaleString()}`}
+                      />
+                      <ChartTooltip
+                        cursor={{ fill: "hsl(var(--muted))" }}
+                        content={
+                          <ChartTooltipContent
+                            labelKey="monthLabel"
+                            nameKey="revenue"
+                          />
+                        }
+                      />
+                      <Bar
+                        dataKey="revenue"
+                        fill="var(--color-revenue)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+                <div className="space-y-1">
+                  <p>
+                    <span className="text-muted-foreground">Total orders: </span>
+                    <strong>{orderCount}</strong>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Total revenue: </span>
+                    <strong>₦{totalRevenue.toLocaleString()}</strong>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">
+                      Platform commission (6.5%):{" "}
+                    </span>
+                    <strong>₦{commission.toLocaleString()}</strong>
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
